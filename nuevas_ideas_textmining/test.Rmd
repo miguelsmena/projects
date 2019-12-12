@@ -1,0 +1,98 @@
+---
+title: "Sentimental Analysis of #PRESUPUESTO2020YA"
+subtitle: "A scratch of Salvadoran feelings about the approval of the 2020 government budget, plotted in a Word Cloud"
+output: html_document
+author: Miguel Sanchez, twitter @MikeSanchezM
+date: December, 12
+---
+##Introduction
+A Sentimental Analysis is the text mining of words from a collection of information grouped by positive or negative sentiments to determinate the overall perception of a topic, in this case, i'll take a collection of tweets from the  5/12/2019 to 12/12/2019 period, aiming to infer about the perception of the tweets with the hashtag #PRESUPUESTO2020YA, and plotted in a Word Cloud.
+```{r, echo=FALSE, message=FALSE}
+#set working eviroment
+setwd('C:/Users/migue/rfiles/nuevas_ideas_textmining')
+```
+
+```{r, echo=TRUE, message=FALSE}
+
+#libraries 
+library(rtweet)
+library(tidyverse)
+library(tidytext)
+library(wordcloud)
+library(RColorBrewer)
+```
+
+```{r, echo=FALSE, message=FALSE, results='hide'}
+#twitter keys
+appname <- 'mikesanchezapp'
+key <- "CdqGMRtGg0PBlXsPtyflnEAu1"
+secret_key <- "xfzrbFeWIgpJGwkheOyJhSqOGT8hrxVLlKe0wT0GxmflKBWm4V"
+#twitter tokens
+access_token <- "788076739-cmreHoPN9QfPcWC9DqGvTj9TkX8n00XVt8yXKnlX"
+access_secret <- "dLBzATb27T6fsG3lzaFhEzXFQ8ckHAR2xLCbx64aLpy2w"
+#create eviroment
+twitter_token <- create_token(
+  app = appname,
+  consumer_key = key,
+  consumer_secret = secret_key,
+  access_token = access_token,
+  access_secret = access_secret)
+twitter_token
+```
+
+```{r}
+#read twitter data
+ppto_2020 <- search_tweets( q = '#PRESUPUESTO2020YA',
+                            n = 500, #sample of tweets with the hashtag #PRESUPUESTO2020YA
+                            include_rts = FALSE)
+```
+```{r}
+#convert tweets into a flat file 
+ppto_2020_txt <- ppto_2020 %>%
+  select(text)
+write.csv(ppto_2020_txt, "ppto_2020_tidy_flat.csv")
+```
+
+```{r}
+#inspect data
+head(ppto_2020_txt)
+```
+
+```{r, message=FALSE, warning = FALSE}
+#tidy data
+#csv collected 12/12/19 with 6-9 days of tweets 
+ppto_2020_flat <- read_csv("ppto_2020_tidy_flat.csv") %>%
+  select(text) %>%
+  unnest_tokens(word, text) %>%
+  filter(word != "PRESUPUESTO2020YA")
+```
+
+```{r, message=FALSE, warning=FALSE}
+#ncr
+ncr_select_string <- c('Spanish (es)', 'Positive', 'Negative', 'Anger',	'Anticipation',	'Disgust', 'Fear', 'Joy', 'Sadness', 'Surprise', 'Trust')
+ncr_spanish <- readxl:: read_xlsx('NRC-Emotion-Lexicon-v0.92-In105Languages-Nov2017Translations.xlsx') %>%
+  select(ncr_select_string) %>%
+  rename(word = `Spanish (es)`) %>%
+  gather(-word, key = 'sentiment', value = 'value') %>%
+  filter(value == 1, word != 'NO TRANSLATION') %>%
+  select(-value)
+```
+
+```{r}
+#inner join
+ppto_join <- ppto_2020_flat %>%
+  inner_join(ncr_spanish, by='word') %>%
+  count(word)
+```
+## Word Cloud Plot
+The Word Cloud aims to show the words with higher frequency in our Sentimental Analysis.
+```{r}
+set.seed(1234)
+ppto_2020_cloud <- wordcloud(words = ppto_join$word,
+                               freq = ppto_join$n,
+                               min.freq = 1,
+                               max.words= 500,
+                               random.order = FALSE,
+                               random.color = FALSE,
+                               colors=brewer.pal(8, "Dark2"))
+```
